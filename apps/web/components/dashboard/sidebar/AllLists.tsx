@@ -14,7 +14,7 @@ import { toast } from "@/components/ui/sonner";
 import { BOOKMARK_DRAG_MIME } from "@/lib/bookmark-drag";
 import { useTranslation } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
-import { MoreHorizontal, Plus } from "lucide-react";
+import { Lock, MoreHorizontal, Plus } from "lucide-react";
 
 import type { ZBookmarkList } from "@karakeep/shared/types/lists";
 import {
@@ -119,8 +119,11 @@ function DroppableListSidebarItem({
         )
       }
       logo={
-        <span className="flex">
+        <span className="flex items-center gap-1">
           <span className="text-lg"> {node.item.icon}</span>
+          {node.item.locked && (
+            <Lock className="size-3 text-muted-foreground" />
+          )}
         </span>
       }
       name={node.item.name}

@@ -4,12 +4,14 @@ import {
   asc,
   desc,
   eq,
+  exists,
   getTableColumns,
   gt,
   gte,
   inArray,
   lt,
   lte,
+  not,
   or,
   SQL,
 } from "drizzle-orm";
@@ -22,6 +24,7 @@ import {
   AssetTypes,
   bookmarkAssets,
   bookmarkLinks,
+  bookmarkLists,
   bookmarks,
   bookmarksInLists,
   bookmarkTags,
@@ -551,6 +554,23 @@ export class Bookmark extends BareBookmark {
               eq(bookmarks.userId, ctx.user.id),
               ...buildCommonFilters(),
               buildCursorCondition(bookmarks.createdAt, bookmarks.id),
+              not(
+                exists(
+                  ctx.db
+                    .select()
+                    .from(bookmarksInLists)
+                    .innerJoin(
+                      bookmarkLists,
+                      eq(bookmarksInLists.listId, bookmarkLists.id),
+                    )
+                    .where(
+                      and(
+                        eq(bookmarksInLists.bookmarkId, bookmarks.id),
+                        eq(bookmarkLists.locked, true),
+                      ),
+                    ),
+                ),
+              ),
             ),
           )
           .limit(input.limit + 1)

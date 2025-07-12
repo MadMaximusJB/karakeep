@@ -10,6 +10,8 @@ import { useTranslation } from "@/lib/i18n/client";
 import {
   DoorOpen,
   FolderInput,
+  Lock,
+  LockOpen,
   Pencil,
   Plus,
   Share,
@@ -19,11 +21,13 @@ import {
   Users,
 } from "lucide-react";
 
+import { useEditBookmarkList } from "@karakeep/shared-react/hooks/lists";
 import { ZBookmarkList } from "@karakeep/shared/types/lists";
 
 import { EditListModal } from "../lists/EditListModal";
 import DeleteListConfirmationDialog from "./DeleteListConfirmationDialog";
 import LeaveListConfirmationDialog from "./LeaveListConfirmationDialog";
+import { LockedListAuthModal } from "./LockedListAuthModal";
 import { ManageCollaboratorsModal } from "./ManageCollaboratorsModal";
 import { MergeListModal } from "./MergeListModal";
 import { ShareListModal } from "./ShareListModal";
@@ -49,12 +53,30 @@ export function ListOptions({
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [collaboratorsModalOpen, setCollaboratorsModalOpen] = useState(false);
+  const [unlockModalOpen, setUnlockModalOpen] = useState(false);
+  const { mutate: editList } = useEditBookmarkList();
 
   // Only owners can manage the list (edit, delete, manage collaborators, etc.)
   const isOwner = list.userRole === "owner";
   // Collaborators (non-owners) can leave the list
   const isCollaborator =
     list.userRole === "editor" || list.userRole === "viewer";
+
+  const handleToggleLock = () => {
+    if (list.locked) {
+      setUnlockModalOpen(true);
+    } else {
+      setEditModalOpen(true);
+    }
+  };
+
+  const handleUnlockConfirmed = () => {
+    editList({
+      listId: list.id,
+      locked: false,
+    });
+    setUnlockModalOpen(false);
+  };
 
   // Define action items array
   const actionItems = [
@@ -73,6 +95,18 @@ export function ListOptions({
       visible: isOwner,
       disabled: false,
       onClick: () => setShareModalOpen(true),
+    },
+    {
+      id: "toggle-lock",
+      title: list.locked ? "Unlock List" : "Lock List",
+      icon: list.locked ? (
+        <LockOpen className="size-4" />
+      ) : (
+        <Lock className="size-4" />
+      ),
+      visible: isOwner,
+      disabled: false,
+      onClick: handleToggleLock,
     },
     {
       id: "manage-collaborators",
@@ -179,6 +213,13 @@ export function ListOptions({
         list={list}
         open={leaveListDialogOpen}
         setOpen={setLeaveListDialogOpen}
+      />
+      <LockedListAuthModal
+        open={unlockModalOpen}
+        onOpenChange={setUnlockModalOpen}
+        listId={list.id}
+        listName={list.name}
+        onAuthenticated={handleUnlockConfirmed}
       />
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
       <DropdownMenuContent>

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { CollapsibleTriggerChevron } from "@/components/ui/collapsible";
 import { useTranslation } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
-import { MoreHorizontal } from "lucide-react";
+import { Lock, MoreHorizontal } from "lucide-react";
 
 import type { ZBookmarkList } from "@karakeep/shared/types/lists";
 import {
@@ -95,6 +95,9 @@ function ListItem({
           <div className="flex min-w-0 flex-col">
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <p className="truncate text-lg text-foreground">{name}</p>
+              {list?.locked && (
+                <Lock className="size-4 shrink-0 text-muted-foreground" />
+              )}
             </div>
             {(description || list?.description) && (
               <p className="truncate text-sm text-muted-foreground">

@@ -514,6 +514,9 @@
               "viewer",
               "public"
             ]
+          },
+          "locked": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -523,7 +526,8 @@
           "parentId",
           "public",
           "hasCollaborators",
-          "userRole"
+          "userRole",
+          "locked"
         ]
       },
       "Highlight": {

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Bookmarks from "@/components/dashboard/bookmarks/Bookmarks";
 import ListHeader from "@/components/dashboard/lists/ListHeader";
+import { LockedListAuthProvider } from "@/components/dashboard/lists/LockedListAuthProvider";
+import { LockedListWrapper } from "@/components/dashboard/lists/LockedListWrapper";
 import { api } from "@/server/api/client";
 import { TRPCError } from "@trpc/server";
 
@@ -54,16 +56,20 @@ export default async function ListPage(props: {
   const canEdit = list.userRole === "owner" || list.userRole === "editor";
 
   return (
-    <BookmarkListContextProvider list={list}>
-      <Bookmarks
-        query={{
-          listId: list.id,
-          archived: !includeArchived ? false : undefined,
-        }}
-        showDivider={true}
-        showEditorCard={list.type === "manual" && canEdit}
-        header={<ListHeader initialData={list} />}
-      />
-    </BookmarkListContextProvider>
+    <LockedListAuthProvider>
+      <LockedListWrapper list={list}>
+        <BookmarkListContextProvider list={list}>
+          <Bookmarks
+            query={{
+              listId: list.id,
+              archived: !includeArchived ? false : undefined,
+            }}
+            showDivider={true}
+            showEditorCard={list.type === "manual" && canEdit}
+            header={<ListHeader initialData={list} />}
+          />
+        </BookmarkListContextProvider>
+      </LockedListWrapper>
+    </LockedListAuthProvider>
   );
 }

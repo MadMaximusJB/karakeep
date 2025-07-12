@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { TRPCError } from "@trpc/server";
+import bcrypt from "bcryptjs";
 import { and, count, eq, inArray, or, sql } from "drizzle-orm";
 import invariant from "tiny-invariant";
 import { z } from "zod";
@@ -35,10 +36,15 @@ interface ListCollaboratorEntry {
   membershipId: string;
 }
 
+type InternalBookmarkList = ZBookmarkList & {
+  userId: string;
+  passwordHash?: string | null;
+};
+
 export abstract class List {
   protected constructor(
     protected ctx: AuthedContext,
-    protected list: ZBookmarkList & { userId: string },
+    protected list: InternalBookmarkList,
   ) {}
 
   get id() {
@@ -46,8 +52,13 @@ export abstract class List {
   }
 
   asZBookmarkList() {
+    const {
+      passwordHash: _passwordHash,
+      ...listWithoutPasswordHash
+    } = this.list;
+
     if (this.list.userId === this.ctx.user.id) {
-      return this.list;
+      return listWithoutPasswordHash;
     }
 
     // There's some privacy implications here, so we need to think twice
@@ -62,6 +73,7 @@ export abstract class List {
       query: this.list.query,
       userRole: this.list.userRole,
       hasCollaborators: this.list.hasCollaborators,
+      locked: this.list.locked,
 
       // Hide parentId as it is not relevant to the user
       parentId: null,
@@ -72,7 +84,7 @@ export abstract class List {
 
   private static fromData(
     ctx: AuthedContext,
-    data: ZBookmarkList & { userId: string },
+    data: InternalBookmarkList,
     collaboratorEntry: ListCollaboratorEntry | null,
   ) {
     if (data.type === "smart") {
@@ -88,7 +100,7 @@ export abstract class List {
   ): Promise<ManualList | SmartList> {
     // First try to find the list owned by the user
     let list = await (async (): Promise<
-      (ZBookmarkList & { userId: string }) | undefined
+      InternalBookmarkList | undefined
     > => {
       const l = await ctx.db.query.bookmarkLists.findFirst({
         columns: {
@@ -166,6 +178,7 @@ export abstract class List {
     const listdb = await ctx.db.query.bookmarkLists.findFirst({
       where: and(
         eq(bookmarkLists.id, listId),
+        eq(bookmarkLists.locked, false),
         or(
           eq(bookmarkLists.public, true),
           token !== null ? eq(bookmarkLists.rssToken, token) : undefined,
@@ -256,6 +269,11 @@ export abstract class List {
     ctx: AuthedContext,
     input: z.infer<typeof zNewBookmarkListSchema>,
   ): Promise<ManualList | SmartList> {
+    let passwordHash: string | undefined;
+    if (input.locked && input.password) {
+      passwordHash = await bcrypt.hash(input.password, 12);
+    }
+
     const [result] = await ctx.db
       .insert(bookmarkLists)
       .values({
@@ -266,6 +284,8 @@ export abstract class List {
         parentId: input.parentId,
         type: input.type,
         query: input.query,
+        locked: input.locked ?? false,
+        passwordHash,
       })
       .returning();
     return this.fromData(
@@ -279,9 +299,9 @@ export abstract class List {
     );
   }
 
-  static async getAll(ctx: AuthedContext) {
+  static async getAll(ctx: AuthedContext, includeLockedLists = true) {
     const [ownedLists, sharedLists] = await Promise.all([
-      this.getAllOwned(ctx),
+      this.getAllOwned(ctx, includeLockedLists),
       this.getSharedWithUser(ctx),
     ]);
     return [...ownedLists, ...sharedLists];
@@ -289,12 +309,16 @@ export abstract class List {
 
   static async getAllOwned(
     ctx: AuthedContext,
+    includeLockedLists = true,
   ): Promise<(ManualList | SmartList)[]> {
     const lists = await ctx.db.query.bookmarkLists.findMany({
       columns: {
         rssToken: false,
       },
-      where: and(eq(bookmarkLists.userId, ctx.user.id)),
+      where: and(
+        eq(bookmarkLists.userId, ctx.user.id),
+        includeLockedLists ? undefined : eq(bookmarkLists.locked, false),
+      ),
       with: {
         collaborators: {
           columns: {
@@ -452,6 +476,34 @@ export abstract class List {
     }
   }
 
+  async verifyPassword(password: string): Promise<boolean> {
+    if (!this.list.locked || !this.list.passwordHash) {
+      return false;
+    }
+    return await bcrypt.compare(password, this.list.passwordHash);
+  }
+
+  async ensureCanAccessLocked(password?: string): Promise<void> {
+    if (!this.list.locked) {
+      return;
+    }
+
+    if (!password) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "This list is locked and requires a password",
+      });
+    }
+
+    const isValid = await this.verifyPassword(password);
+    if (!isValid) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Invalid password for locked list",
+      });
+    }
+  }
+
   /**
    * Ensure the user can manage this list. Throws if they cannot.
    */
@@ -602,16 +654,30 @@ export abstract class List {
     input: z.infer<typeof zEditBookmarkListSchemaWithValidation>,
   ): Promise<void> {
     this.ensureCanManage();
+    let passwordHash: string | null | undefined;
+    if (input.locked && input.password) {
+      passwordHash = await bcrypt.hash(input.password, 12);
+    } else if (input.locked === false) {
+      passwordHash = null;
+    }
+
+    const updateData: Record<string, unknown> = {
+      name: input.name,
+      description: input.description,
+      icon: input.icon,
+      parentId: input.parentId,
+      query: input.query,
+      public: input.public,
+      locked: input.locked,
+    };
+
+    if (passwordHash !== undefined) {
+      updateData.passwordHash = passwordHash;
+    }
+
     const result = await this.ctx.db
       .update(bookmarkLists)
-      .set({
-        name: input.name,
-        description: input.description,
-        icon: input.icon,
-        parentId: input.parentId,
-        query: input.query,
-        public: input.public,
-      })
+      .set(updateData)
       .where(
         and(
           eq(bookmarkLists.id, this.list.id),

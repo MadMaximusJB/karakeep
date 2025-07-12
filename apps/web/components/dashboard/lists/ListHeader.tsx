@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/client";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { MoreHorizontal, Sparkles } from "lucide-react";
+import { Lock, MoreHorizontal, Sparkles } from "lucide-react";
 
 import { useTRPC } from "@karakeep/shared-react/trpc";
 import { parseSearchQuery } from "@karakeep/shared/searchQueryParser";
@@ -79,6 +79,15 @@ export default function ListHeader({
               </>
             )}
             <ListPrivacyLabel list={list} />
+            {list.locked && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="inline-flex items-center gap-1">
+                  <Lock className="size-3.5" />
+                  Locked
+                </span>
+              </>
+            )}
             {parsedQuery && (
               <>
                 <span aria-hidden>·</span>

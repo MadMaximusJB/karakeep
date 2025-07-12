@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
+import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "@/lib/i18n/client";
 import data from "@emoji-mart/data";
 import Picker from "@emoji-mart/react";
@@ -90,6 +91,8 @@ export function EditListModal({
       parentId: list?.parentId ?? prefill?.parentId,
       type: list?.type ?? prefill?.type ?? "manual",
       query: list?.query ?? prefill?.query ?? undefined,
+      locked: list?.locked ?? prefill?.locked ?? false,
+      password: undefined,
     },
   });
   const [open, setOpen] = [
@@ -105,6 +108,8 @@ export function EditListModal({
       parentId: list?.parentId ?? prefill?.parentId,
       type: list?.type ?? prefill?.type ?? "manual",
       query: list?.query ?? prefill?.query ?? undefined,
+      locked: list?.locked ?? prefill?.locked ?? false,
+      password: undefined,
     });
   }, [open]);
 
@@ -384,6 +389,56 @@ export function EditListModal({
                         >
                           {t("lists.search_query_help")}
                         </Link>
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
+              />
+            )}
+            <FormField
+              control={form.control}
+              name="locked"
+              render={({ field }) => {
+                return (
+                  <FormItem className="grow pb-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-0.5">
+                        <FormLabel>Lock List</FormLabel>
+                        <FormDescription>
+                          Require a password to view or modify this list
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
+            />
+            {form.watch("locked") && (
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => {
+                  return (
+                    <FormItem className="grow pb-4">
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          className="w-full"
+                          placeholder="Enter password"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Password required to access this list
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

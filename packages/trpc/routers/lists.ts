@@ -12,6 +12,7 @@ import { addLogFields, logEvent } from "@karakeep/shared-server";
 
 import type { AuthedContext } from "../index";
 import {
+  authedProcedure,
   createEventLogMiddleware,
   createRateLimitMiddleware,
   createScopedAuthedProcedure,
@@ -42,6 +43,16 @@ export const ensureListAtLeastEditor = experimental_trpcMiddleware<{
   input: { listId: string };
 }>().create(async (opts) => {
   opts.ctx.list.ensureCanEdit();
+  return opts.next({
+    ctx: opts.ctx,
+  });
+});
+
+export const ensureListAccess = experimental_trpcMiddleware<{
+  ctx: AuthedContext & { list: List };
+  input: { password?: string };
+}>().create(async (opts) => {
+  await opts.ctx.list.ensureCanAccessLocked(opts.input.password);
   return opts.next({
     ctx: opts.ctx,
   });
@@ -139,6 +150,7 @@ export const listsAppRouter = router({
     )
     .use(ensureListAtLeastViewer)
     .use(ensureListAtLeastEditor)
+    .use(ensureListAccess)
     .use(ensureBookmarkOwnership)
     .mutation(async ({ input, ctx }) => {
       await ctx.list.addBookmark(input.bookmarkId);
@@ -152,6 +164,7 @@ export const listsAppRouter = router({
     )
     .use(ensureListAtLeastViewer)
     .use(ensureListAtLeastEditor)
+    .use(ensureListAccess)
     .mutation(async ({ input, ctx }) => {
       await ctx.list.removeBookmark(input.bookmarkId);
     }),
@@ -411,5 +424,49 @@ export const listsAppRouter = router({
     .use(ensureListAtLeastViewer)
     .mutation(async ({ ctx }) => {
       await ctx.list.leaveList();
+    }),
+
+  verifyListPassword: authedProcedure
+    .input(
+      z.object({
+        listId: z.string(),
+        password: z.string(),
+      }),
+    )
+    .output(
+      z.object({
+        valid: z.boolean(),
+      }),
+    )
+    .use(ensureListAtLeastViewer)
+    .mutation(async ({ input, ctx }) => {
+      const valid = await ctx.list.verifyPassword(input.password);
+      return { valid };
+    }),
+
+  getWithPassword: authedProcedure
+    .input(
+      z.object({
+        listId: z.string(),
+        password: z.string().optional(),
+      }),
+    )
+    .output(zBookmarkListSchema)
+    .use(ensureListAtLeastViewer)
+    .query(async ({ input, ctx }) => {
+      await ctx.list.ensureCanAccessLocked(input.password);
+      return ctx.list.asZBookmarkList();
+    }),
+
+  getLockedLists: authedProcedure
+    .output(
+      z.object({
+        lists: z.array(zBookmarkListSchema),
+      }),
+    )
+    .query(async ({ ctx }) => {
+      const allLists = await List.getAll(ctx);
+      const lockedLists = allLists.filter((l) => l.asZBookmarkList().locked);
+      return { lists: lockedLists.map((l) => l.asZBookmarkList()) };
     }),
 });
