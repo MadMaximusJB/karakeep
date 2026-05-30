@@ -81,17 +81,17 @@ jobs:
 
           all_tags=""
 
-          # Only push 'latest' tags on pushes to main, not on releases
-          if [[ "${{ github.event_name }}" == "push" ]]; then
+          # Push 'latest' tags on pushes to main and releases
+          if [[ "${{ github.event_name }}" == "push" || "${{ github.event_name }}" == "release" ]]; then
             latest_with_suffix=$(add_suffix "${{ matrix.tags_latest }}")
             all_tags="${latest_with_suffix}"
             echo "latest=${latest_with_suffix}" >> "$GITHUB_OUTPUT"
           fi
 
-          # Only push release-specific tags on releases
+          # Also push release-specific tags on releases
           if [[ "${{ github.event_name }}" == "release" ]]; then
             release_with_suffix=$(add_suffix "${{ matrix.tags_release }}")
-            all_tags="${release_with_suffix}"
+            all_tags="${all_tags},${release_with_suffix}"
             echo "release=${release_with_suffix}" >> "$GITHUB_OUTPUT"
           fi
 
@@ -163,8 +163,8 @@ jobs:
               "${tag}-arm64"
           }
 
-          # Only create 'latest' manifests on pushes to main
-          if [[ "${IS_PUSH}" == "true" ]]; then
+          # Create 'latest' manifests on pushes to main and releases
+          if [[ "${IS_PUSH}" == "true" || "${IS_RELEASE}" == "true" ]]; then
             IFS=',' read -ra latest_tags <<< "${TAGS_LATEST}"
             for tag in "${latest_tags[@]}"; do
               create_manifest "$tag"
