@@ -73,19 +73,26 @@ export function useCreateBookmarkWithPostHook(
 
 export function useCreateBookmarkWithCustomPostHook(
   postCreationHook: () => (bookmarkId: string) => Promise<void>,
-  ...opts: Parameters<typeof api.bookmarks.createBookmark.useMutation>
+  opts?: Parameters<
+    TRPCApi["bookmarks"]["createBookmark"]["mutationOptions"]
+  >[0],
 ) {
-  const apiUtils = api.useUtils();
+  const api = useTRPC();
+  const queryClient = useQueryClient();
   const postCreationCB = postCreationHook();
-  return api.bookmarks.createBookmark.useMutation({
-    ...opts[0],
-    onSuccess: async (res, req, meta) => {
-      apiUtils.bookmarks.getBookmarks.invalidate();
-      apiUtils.bookmarks.searchBookmarks.invalidate();
-      await postCreationCB(res.id);
-      return opts[0]?.onSuccess?.(res, req, meta);
-    },
-  });
+  return useMutation(
+    api.bookmarks.createBookmark.mutationOptions({
+      ...opts,
+      onSuccess: async (res, req, meta, context) => {
+        queryClient.invalidateQueries(api.bookmarks.getBookmarks.pathFilter());
+        queryClient.invalidateQueries(
+          api.bookmarks.searchBookmarks.pathFilter(),
+        );
+        await postCreationCB(res.id);
+        return opts?.onSuccess?.(res, req, meta, context);
+      },
+    }),
+  );
 }
 
 export function useDeleteBookmark(

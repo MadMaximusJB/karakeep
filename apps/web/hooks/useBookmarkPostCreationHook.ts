@@ -9,7 +9,9 @@ import {
   useUpdateBookmarkTags,
 } from "@karakeep/shared-react/hooks/bookmarks";
 import { useAddBookmarkToList } from "@karakeep/shared-react/hooks/lists";
-import { api } from "@karakeep/shared-react/trpc";
+import { useTRPC } from "@karakeep/shared-react/trpc";
+
+type TRPCApi = ReturnType<typeof useTRPC>;
 
 /**
  * Web app specific version of useBookmarkPostCreationHook that handles locked list authentication
@@ -66,10 +68,12 @@ export function useBookmarkPostCreationHook() {
  * Web app specific version of useCreateBookmarkWithPostHook that handles locked list authentication
  */
 export function useCreateBookmarkWithPostHook(
-  ...opts: Parameters<typeof api.bookmarks.createBookmark.useMutation>
+  opts?: Parameters<
+    TRPCApi["bookmarks"]["createBookmark"]["mutationOptions"]
+  >[0],
 ) {
   return useCreateBookmarkWithCustomPostHook(
     useBookmarkPostCreationHook,
-    ...opts,
+    opts,
   );
 }

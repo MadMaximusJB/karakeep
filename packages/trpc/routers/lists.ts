@@ -50,7 +50,7 @@ export const ensureListAtLeastEditor = experimental_trpcMiddleware<{
 
 export const ensureListAccess = experimental_trpcMiddleware<{
   ctx: AuthedContext & { list: List };
-  input: { password?: string };
+  input: { listId: string; password?: string };
 }>().create(async (opts) => {
   await opts.ctx.list.ensureCanAccessLocked(opts.input.password);
   return opts.next({
@@ -146,6 +146,7 @@ export const listsAppRouter = router({
       z.object({
         listId: z.string(),
         bookmarkId: z.string(),
+        password: z.string().optional(),
       }),
     )
     .use(ensureListAtLeastViewer)
@@ -160,6 +161,7 @@ export const listsAppRouter = router({
       z.object({
         listId: z.string(),
         bookmarkId: z.string(),
+        password: z.string().optional(),
       }),
     )
     .use(ensureListAtLeastViewer)

@@ -12,9 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { useTranslation } from "@/lib/i18n/client";
+import { useMutation } from "@tanstack/react-query";
 import { Lock } from "lucide-react";
 
-import { api } from "@karakeep/shared-react/trpc";
+import { useTRPC } from "@karakeep/shared-react/trpc";
 
 interface LockedListAuthModalProps {
   open: boolean;
@@ -31,35 +32,38 @@ export function LockedListAuthModal({
   listName,
   onAuthenticated,
 }: LockedListAuthModalProps) {
+  const api = useTRPC();
   const { t } = useTranslation();
   const [password, setPassword] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
 
-  const verifyPasswordMutation = api.lists.verifyListPassword.useMutation({
-    onSuccess: (data: { valid: boolean }) => {
-      if (data.valid) {
-        toast({
-          description: "Password verified successfully",
-        });
-        onAuthenticated(password);
-        onOpenChange(false);
-        setPassword("");
-      } else {
+  const verifyPasswordMutation = useMutation(
+    api.lists.verifyListPassword.mutationOptions({
+      onSuccess: (data) => {
+        if (data.valid) {
+          toast({
+            description: "Password verified successfully",
+          });
+          onAuthenticated(password);
+          onOpenChange(false);
+          setPassword("");
+        } else {
+          toast({
+            variant: "destructive",
+            description: "Invalid password",
+          });
+        }
+        setIsVerifying(false);
+      },
+      onError: () => {
         toast({
           variant: "destructive",
-          description: "Invalid password",
+          description: t("common.something_went_wrong"),
         });
-      }
-      setIsVerifying(false);
-    },
-    onError: () => {
-      toast({
-        variant: "destructive",
-        description: t("common.something_went_wrong"),
-      });
-      setIsVerifying(false);
-    },
-  });
+        setIsVerifying(false);
+      },
+    }),
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
