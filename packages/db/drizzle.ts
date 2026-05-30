@@ -11,7 +11,7 @@ import dbConfig from "./drizzle.config";
 import { instrumentDatabase } from "./instrumentation";
 import * as schema from "./schema";
 
-const sqlite = new Database(dbConfig.dbCredentials.url);
+export const sqlite = new Database(dbConfig.dbCredentials.url);
 
 if (serverConfig.database.walMode) {
   sqlite.pragma("journal_mode = WAL");
